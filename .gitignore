@@ -1,4 +1,6 @@
 .c9/
 .ipynb_checkpoints/
-
+.~c9*
+__pycache__
+.py
 

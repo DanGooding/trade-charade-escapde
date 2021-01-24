@@ -1,0 +1,42 @@
+PHILIPS_A is more liquid than PHILIPS_B 
+PHILIPS_B lags behind PHILIPS_A
+hedging on PHILIPS_B
+Predict the trend of PHILIPS_B depending on PHILIPS_A
+
+
+
+
+If PHILIPS_A asks go down: 
+	wait 0.1s
+	if PHILIPS_B asks also goes down: 
+		buy the order and increase our lots
+		make note of price (X)
+		
+if PHILIPS_A bid goes up: 
+	wait 0.1s
+	if PHILIPS_B bids also goes up and price is > X: 
+	    sell the order for a profit (use limit)
+	    
+	    if outstanding limits > 600: 
+            cash out the highest bidding order
+            
+aim to be at 0 position if position >10 or <10
+
+ask - sell
+bid - buy
+
+
+--------------------------------------------
+
+if we wanna calculate offset:
+
+1. calculate latency
+2. let A be the instrument which is furthest behind:
+	if A.price < B.price:
+		buy on A for A's market price, list a sell on A for B's market price
+	else:
+		sell on A for A's market price, list a buy on A for B's market price
+		
+keep limit order in less liquid market
+withdraw limit order if impossible to make a profit
+as soon as limit order filled, put a non-limit offer in other market [risk that someone will take the order before you do]
