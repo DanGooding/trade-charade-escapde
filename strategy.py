@@ -14,27 +14,18 @@ logger.setLevel('INFO')
 #    - You are only allowed to send 25 updates (inserts/deletes/amends) to the market per second
 
 class Strategy(ABC):
+    """ abstract base class for a trading strategy """
+    
     def __init__(self, exchange, instruments):
         self.e = exchange
         self.instruments = instruments
         self.outstanding_order_ids = defaultdict(set)  # {instrument: {order_id}}
-        
+    
+    # periodcally called, check for and perform actions
     @abstractmethod
     def update(self):
         pass
-    
-    """
-    def get_out_of_positions(self, instrument = None):
-        # Get out of all positions you are currently holding, regardless of the loss involved. That means selling whatever
-        # you are long, and buying-back whatever you are short. Be sure you know what you are doing when you use this logic.
-        print(self.e.get_positions())
-        for s, p in self.e.get_positions().items():
-            if p > 0 and (instrument == None or s == instrument):
-                self.e.insert_order(s, price=1, volume=p, side='ask', order_type='ioc')
-            elif p < 0 and (instrument == None or s == instrument):
-                self.e.insert_order(s, price=100000, volume=-p, side='bid', order_type='ioc')  
-        print(self.e.get_positions())
-    """
+
     # Intention is to quickly complete incomplete order-pairs
     def get_out_of_positions(self, target=0, instrument=None):
         # Delete all outstanding orders
@@ -75,11 +66,12 @@ class Strategy(ABC):
         print(f"Positions after getting out: {self.e.get_positions()}")
     
     
+    # make an order, but bias its price to try keep/move our position towards zero
     def insert_biased_order(self, instrument_id, price, volume, side, order_type='limit', position=None):
         if position is None:
             position = self.e.get_positions()[instrument_id]
         
-        if abs(position) > 20:
+        if abs(position) > 10:
             
             # bid higher when we need more
             # ask higher when we have lots
@@ -92,6 +84,7 @@ class Strategy(ABC):
         return self.insert_order(instrument_id, price=price, volume=volume, side=side, order_type=order_type)
     
     
+    # functions on orders local to this strategy, rather than from any strategy on this bot
     def insert_order(self, instrument_id, price, volume, side, order_type='limit'):
         order_id = self.e.insert_order(instrument_id, price=price, volume=volume, side=side, order_type=order_type)
         self.outstanding_order_ids[instrument_id].add(order_id)

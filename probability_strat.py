@@ -39,7 +39,7 @@ class ProbabilityStrat(Strategy):
     def analyse(): 
         pass
         #use pandas. splin interpolate. find first and second derivatives
-        #look at % change. if trend is increasing and hits local maximum, then make shorts
+        
         
     
     def update(self): 

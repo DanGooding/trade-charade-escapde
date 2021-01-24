@@ -33,15 +33,16 @@ if __name__ == '__main__':
                 try:
                     s.update();
                 except AssertionError as e: # if get disconnected than do something else
-                    # raise
+                    # Try to reconnect
                     while not exchange.is_connected():
                         logger.info("disconnected, trying to reconnect")
                         time.sleep(15)
                         exchange.connect()
-                        
+                    # Once reconnected, make strategy that experienced disconnection do cleanup
+                    s.get_out_of_positions(300)
                     continue
             # logger.info(exchange.get_cash())
-    except Exception as e:
+    except KeyboardInterrupt as e:
         print(e)
         strats[0].get_out_of_positions()
         #raise

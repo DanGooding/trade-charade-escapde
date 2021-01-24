@@ -12,55 +12,27 @@ class State(Enum):
     UNFULFILLED_ORDER_DELAY = 2
 
 class SafeDualStrat(Strategy):
-   
     def __init__(self, exchange, instruments):
         super().__init__(exchange, instruments)
         self.state = State.CHECK_MARKETS
-        
+        self.changed_at = time.time()
+        self.orders = {}
+        # Start correcting position if max(abs(instrument.position)) >= start_correcting_at
         self.correcting_position = False
         self.start_correcting_at = 20
         self.stop_correcting_at = 5
-        
-        self.max_single_order_volume = 20
-        
-        self.changed_at = time.time()
-        self.orders = {}
-        self.positions = [0 for _ in range(len(instruments))]
-        
+        # RISK: The greater we trade in single orders, the greater the penalty for missing an order
+        # Solution: cap single order volume
+        # This should be no more than the position extremity limit, to avoid jumping between extremes
+        # (Tradeoff - sacrifice some profit but reduce risk of order failure & extremity of position imbalance).
+        self.max_single_order_volume = max([20, self.start_correcting_at])
+        # RISK: We lose money when one of our orders gets fulfilled and the other doesn't.
+        # Solution: if an order takes too long to complete, stop and wait some time for market to settle
+        # (Tradeoff - longer waiting times reduce risk of successive order fails but decrease productivity)
         self.order_escape_time = 1 # Max time between posting an order and it being completed
         self.post_escape_recovery_time = 5 # Min time between getting out of an order and posting a new one
     
         self.check_position_extremity()
-    
-    def orders_complete(self):
-        outstanding = {}
-        for i in self.instruments:
-            for order in self.e.get_outstanding_orders(i):
-                if order in self.orders:
-                    outstanding[order]=self.orders[order]
-        self.orders = outstanding
-        return len(outstanding)==0
-    
-    def change_state(self, newstate):
-        #logger.info("Changed state to")
-        self.state = newstate
-        self.changed_at = time.time()
-    
-    def check_position_extremity(self):
-        # Check whether we should correct positions
-        # Start correcting position when most extreme position is above self.start_correcting_at...
-        # ...Don't stop correcting our position until most extreme is below self.stop_correcting_at
-        worst_position = 0
-        for s, p in self.e.get_positions().items():
-            worst_position = max([worst_position, abs(p)])
-        if self.correcting_position and worst_position <= self.stop_correcting_at:
-            print(f"Our position is balanced enough now (abs(p)={p}), going back to making profit.")
-            self.correcting_position = False 
-        elif (not self.correcting_position) and worst_position >= self.start_correcting_at:
-            print(f"EXTREME position (abs(p)={worst_position}), seeking dual trades that can correct it.")
-            self.correcting_position = True
-        else:
-            print(f"(Keeping current correction/profit behaviour... (abs(p)={worst_position}))")
     
     def update(self):
         t = time.time()
@@ -81,6 +53,37 @@ class SafeDualStrat(Strategy):
         else: 
             if t - self.changed_at >= self.post_escape_recovery_time:
                 self.change_state(State.CHECK_MARKETS)
+    
+    def orders_complete(self):
+        outstanding = {}
+        for i in self.instruments:
+            for order in self.e.get_outstanding_orders(i):
+                if order in self.orders:
+                    outstanding[order]=self.orders[order]
+        self.orders = outstanding
+        return len(outstanding)==0
+    
+    def change_state(self, newstate):
+        #logger.info("Changed state to")
+        self.state = newstate
+        self.changed_at = time.time()
+    
+    # LIMIT: Total position (positive or negative) per instrument cannot go over 500.
+    # Solution: Check the extemity of our positions and enter "correction" mode if above threshold
+    # - Start correcting position when most extreme position is above self.start_correcting_at...
+    # - Don't stop correcting our position until most extreme is below self.stop_correcting_at
+    def check_position_extremity(self):
+        worst_position = 0
+        for s, p in self.e.get_positions().items():
+            worst_position = max([worst_position, abs(p)])
+        if self.correcting_position and worst_position <= self.stop_correcting_at:
+            print(f"Our position is balanced enough now (abs(p)={p}), going back to making profit.")
+            self.correcting_position = False 
+        elif (not self.correcting_position) and worst_position >= self.start_correcting_at:
+            print(f"EXTREME position (abs(p)={worst_position}), seeking dual trades that can correct it.")
+            self.correcting_position = True
+        else:
+            print(f"(Keeping current correction/profit behaviour... (abs(p)={worst_position}))")
         
     def check_for_discrepancies(self):
         books = [self.e.get_last_price_book(x) for x in self.instruments]
