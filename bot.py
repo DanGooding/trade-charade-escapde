@@ -22,11 +22,13 @@ if __name__ == '__main__':
     logging.info(exchange.connect())
     logging.info("Setup was successful.")
     try:
+        # we can run multiple strategies at once, but really having separate bots to do this would be simpler
+        # since currently we can't ignore our own orders in aggregate data such as the pricebook
         # strats = [dual_market_strat.DualMarketStrat(exchange, ["PHILIPS_A", "PHILIPS_B"])]
         # strats = [safe_dual_strat.SafeDualStrat(exchange, ["PHILIPS_A", "PHILIPS_B"])]
         # strats = [difference_strat.DifferenceStrat(exchange, ["PHILIPS_A", "PHILIPS_B"])]
         #strats = [dual_paper_strat.DualPaperStrat(exchange, ["PHILIPS_A", "PHILIPS_B"])]
-        strats = [dual_hedge_strat.DualHedgeStrat(exchange, ["PHILIPS_A", "PHILIPS_B"])]
+        strats = [dual_hedge_strat.DualHedgeStrat(exchange, "PHILIPS_A", "PHILIPS_B")]
         while True:
             time.sleep(0.2)
             for s in strats:

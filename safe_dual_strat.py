@@ -14,7 +14,7 @@ class State(Enum):
 # Simultaneously submit IOC orders across instruments to capitalize on price differences between them.
 # (When I1.ask < I2.bid, take I1.ask and sell back to I2.bid)
 #   This "safe" version will wait some time if an order fails,
-#   and has a mechanism to prevent positions from becoming too extreme on either instrument.
+#   and will prevent positions from becoming too extreme on either instrument by taking non-profit trades across instruments.
 class SafeDualStrat(Strategy):
     def __init__(self, exchange, instruments):
         super().__init__(exchange, instruments)
@@ -27,12 +27,12 @@ class SafeDualStrat(Strategy):
         self.stop_correcting_at = 5
         # RISK: The greater we trade in single orders, the greater the penalty for missing an order
         # Solution: cap single order volume
-        #   This should be no more than the position extremity limit, to avoid jumping between extremes
-        #   (Tradeoff - sacrifice some profit but reduce risk of order failure & extremity of position imbalance).
+        #   - This should be no more than the position extremity limit, to avoid jumping between extremes.
+        #   - (Tradeoff - sacrifice some profit but reduce risk of order failure & extremity of position imbalance).
         self.max_single_order_volume = max([20, self.start_correcting_at])
         # RISK: We lose money when one of our orders gets fulfilled and the other doesn't.
         # Solution: if an order takes too long to complete, stop and wait some time for market to settle
-        #   (Tradeoff - longer waiting times reduce risk of successive order fails but decrease productivity)
+        #   - (Tradeoff - longer waiting times reduce risk of successive order fails but decrease productivity)
         self.order_escape_time = 1 # Max time between posting an order and it being completed
         self.post_escape_recovery_time = 5 # Min time between getting out of an order and posting a new one
     
@@ -68,7 +68,6 @@ class SafeDualStrat(Strategy):
         return len(outstanding)==0
     
     def change_state(self, newstate):
-        #logger.info("Changed state to")
         self.state = newstate
         self.changed_at = time.time()
     
@@ -90,6 +89,8 @@ class SafeDualStrat(Strategy):
             print(f"(Keeping current correction/profit behaviour... (abs(p)={worst_position}))")
         
     def check_for_discrepancies(self):
+        # Compare prices across both instruments
+        # - Could be extended to iterate over all instrument pairs given more listings
         books = [self.e.get_last_price_book(x) for x in self.instruments]
         for m1, m2 in [(0,1), (1,0)]:
             m1_id = self.instruments[m1]

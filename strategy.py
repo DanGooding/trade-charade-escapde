@@ -21,7 +21,7 @@ class Strategy(ABC):
         self.instruments = instruments
         self.outstanding_order_ids = defaultdict(set)  # {instrument: {order_id}}
     
-    # periodcally called, check for and perform actions
+    # Periodcally called, check for and perform actions
     @abstractmethod
     def update(self):
         pass
@@ -66,15 +66,15 @@ class Strategy(ABC):
         print(f"Positions after getting out: {self.e.get_positions()}")
     
     
-    # make an order, but bias its price to try keep/move our position towards zero
+    # Make an order, but bias its price to try keep/move our position towards zero
     def insert_biased_order(self, instrument_id, price, volume, side, order_type='limit', position=None):
         if position is None:
             position = self.e.get_positions()[instrument_id]
         
         if abs(position) > 10:
             
-            # bid higher when we need more
-            # ask higher when we have lots
+            # Bid higher when we need more
+            # Ask higher when we have lots
             bias_higher = (position < 0) == (side == 'bid')
             
             change = 0.01 * log(abs(position))
@@ -84,7 +84,7 @@ class Strategy(ABC):
         return self.insert_order(instrument_id, price=price, volume=volume, side=side, order_type=order_type)
     
     
-    # functions on orders local to this strategy, rather than from any strategy on this bot
+    # Functions on orders local to this strategy, rather than from any strategy on this bot
     def insert_order(self, instrument_id, price, volume, side, order_type='limit'):
         order_id = self.e.insert_order(instrument_id, price=price, volume=volume, side=side, order_type=order_type)
         self.outstanding_order_ids[instrument_id].add(order_id)
@@ -106,7 +106,6 @@ class Strategy(ABC):
         return {oid: all_orders[oid] for oid in self.outstanding_order_ids[instrument_id]}
     
     # TODO: we can still see 'our' trades from other strategies, in the pricebook
-    
     
     # Logging functions
     def log_new_trade_ticks(self):

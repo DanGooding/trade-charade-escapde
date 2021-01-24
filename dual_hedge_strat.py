@@ -8,17 +8,18 @@ from collections import defaultdict, deque
 import statistics
 
 class DualHedgeStrat(Strategy):
-    def __init__(self, exchange, instruments):
-        super().__init__(exchange, instruments)
+    def __init__(self, exchange, hedge, instrument):
+        super().__init__(exchange, [hedge, instrument])
         # only trade on one instrument
-        self.instrument = self.instruments[1]
-        self.hedge = self.instruments[0]
+        self.instrument = instrument
+        self.hedge = hedge
 
-        self.wait_time = 2.0
+        self.wait_time = 5.0
         self.update_time = 0.1
         
         self.execution_time = time.time()
         self.quote_time = time.time()
+        self.get_out_of_positions_time = time.time()
         self.prev_num_orders = 0
         
         self.id_bid = 0
@@ -58,8 +59,8 @@ class DualHedgeStrat(Strategy):
         self.lprice = obs_l
         self.hprice = obs_h
         
-        #delta = 0.45 * spread
-        delta = min(0.3, self.avg_hedge*0.55)
+        delta = 0.45 * obs_spread
+        # delta = self.avg_hedge*0.6
         
         our_bid = theo - delta
         our_ask = theo + delta
@@ -76,9 +77,9 @@ class DualHedgeStrat(Strategy):
         orders = list(orders)
         assert len(orders) == 1
         self.e.delete_orders(self.instrument)
-        book = self.e.get_last_price_book(self.instrument)
-        lowest_ask = book.asks[0].price if len(book.asks) > 0 else 100000
-        highest_bid = book.bids[0].price if len(book.bids) > 0 else 1
+        book = self.e.get_last_price_book(self.hedge)
+        lowest_ask = book.asks[0].price-0.01 if len(book.asks) > 0 else 100000
+        highest_bid = book.bids[0].price+0.01 if len(book.bids) > 0 else 1
         logger.info("Hedging")
         if orders[0] == self.id_bid: ## orders[0].side == 'bid'
             # need to place a bid
@@ -99,33 +100,38 @@ class DualHedgeStrat(Strategy):
     
     def update(self):
         num_orders = len(self.e.get_outstanding_orders(self.instrument))
-        t = time.time()
         if num_orders == 0:
             logger.info("0 orders")
             self.quote_bid_ask()
-            self.quote_time = t
+            self.quote_time = time.time()
             self.log_pnl()
         elif num_orders == 1:
             if self.prev_num_orders != 1:
-                self.execution_time = t
-            if t - self.execution_time > self.wait_time:
+                self.execution_time = time.time()
+            if time.time() - self.execution_time > self.wait_time:
                 logger.info("1 order wait time exceeded")
                 while len(self.e.get_outstanding_orders(self.instrument)) > 0:
                     self.run_hedge()
                     time.sleep(0.1)
                 self.quote_bid_ask()
-                self.quote_time = t
+                self.quote_time = time.time()
                 self.log_pnl()
                 logger.info(f"Avg hedge loss: {self.avg_hedge}")
         elif num_orders == 2:
-            if t - self.quote_time > self.update_time:
+            if time.time() - self.quote_time > self.update_time:
                 #logger.info("2 orders wait time exceeded")
                 self.e.delete_orders(self.instrument)
                 self.quote_bid_ask()
-                self.quote_time = t
+                self.quote_time = time.time()
                 #self.log_pnl()
                 #logger.info(f"Avg hedge loss: {self.avg_hedge}")
         else: 
             logger.error(f"{num_orders} orders")
             assert (1==0)
         self.prev_num_orders = num_orders
+        
+        worst_position = 0
+        for s, p in self.e.get_positions().items():
+            worst_position = max([worst_position, abs(p)])
+        if worst_position > 50:
+            self.get_out_of_positions()
