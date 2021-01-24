@@ -59,8 +59,8 @@ class DualHedgeStrat(Strategy):
         self.lprice = obs_l
         self.hprice = obs_h
         
-        delta = 0.45 * obs_spread
-        # delta = self.avg_hedge*0.6
+        # delta = 0.45 * obs_spread
+        delta = self.avg_hedge*0.8
         
         our_bid = theo - delta
         our_ask = theo + delta
