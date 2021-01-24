@@ -1,4 +1,4 @@
-### Optibook
-Welcome to your personal Optibook development environment!
+## Trade Charade Escapade
 
-Check out our instructions page which we communicated to you for instructions on how to get started.
+High frquency trading algorithm made for Optibook at HexCambridge (2021),
+made by Chen, Cindy, Euan, Max, and Dan
